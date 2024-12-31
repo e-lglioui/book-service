@@ -4,10 +4,11 @@ import { Borrowing, BorrowingSchema } from './schemas/borrowing.schemas';
 import { BorrowingService } from './providers/borrowing.service';
 import { BorrowingController } from './controllers/borrowing.controller';
 import { BookModule } from '../book/book.module';
+
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Borrowing.name, schema: BorrowingSchema }]),
-    BookModule
+    BookModule, // Import BookModule for access to Book model
   ],
   controllers: [BorrowingController],
   providers: [BorrowingService],

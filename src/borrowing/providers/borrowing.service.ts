@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Borrowing } from '../schemas/borrowing.schemas';
@@ -14,7 +14,7 @@ export class BorrowingService {
   async borrowBook(userId: string, bookId: string): Promise<Borrowing> {
     const book = await this.bookModel.findById(bookId);
     if (!book || book.copiesAvailable < 1) {
-      throw new Error('Book not available');
+      throw new BadRequestException('Book not available');
     }
 
     const borrowing = new this.borrowingModel({
@@ -38,13 +38,17 @@ export class BorrowingService {
     });
 
     if (!borrowing) {
-      throw new Error('Borrowing not found or already returned');
+      throw new NotFoundException('Borrowing not found or already returned');
     }
 
     borrowing.returnDate = new Date();
     await borrowing.save();
 
     const book = await this.bookModel.findById(bookId);
+    if (!book) {
+      throw new NotFoundException('Book not found');
+    }
+
     book.copiesAvailable += 1;
     await book.save();
 
