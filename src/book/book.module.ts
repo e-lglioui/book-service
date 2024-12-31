@@ -7,9 +7,10 @@ import { S3Service } from '../common/services/s3.service';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Book.name, schema: BookSchema }])
+    MongooseModule.forFeature([{ name: Book.name, schema: BookSchema }]),
   ],
   controllers: [BookController],
-  providers: [BookService, S3Service]
+  providers: [BookService, S3Service],
+  exports: [BookService, MongooseModule], // Export MongooseModule for Book
 })
 export class BookModule {}
