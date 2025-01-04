@@ -1,28 +1,27 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { Book } from '../schemas/book.schema';
 import { S3Service } from '../../common/services/s3.service';
 import { CreateBookDto } from '../dtos/create-book.dto';
 import { UpdateBookDto } from '../dtos/update-book.dto';
+import { BookRepository } from '../repositories/book.repository';
 
 @Injectable()
 export class BookService {
   constructor(
-    @InjectModel(Book.name) private bookModel: Model<Book>,
+    private readonly bookRepository: BookRepository,
     private readonly s3Service: S3Service,
   ) {}
 
   async create(createBookDto: CreateBookDto) {
-    return this.bookModel.create(createBookDto);
+    return this.bookRepository.create(createBookDto);
   }
 
   async findAll() {
-    return this.bookModel.find().exec();
+    return this.bookRepository.findAll();
   }
 
   async findOne(id: string) {
-    const book = await this.bookModel.findById(id).exec();
+    const book = await this.bookRepository.findOne(id);
     if (!book) {
       throw new NotFoundException(`Book with ID ${id} not found`);
     }
@@ -30,7 +29,7 @@ export class BookService {
   }
 
   async update(id: string, updateBookDto: UpdateBookDto) {
-    const updatedBook = await this.bookModel.findByIdAndUpdate(id, updateBookDto, { new: true }).exec();
+    const updatedBook = await this.bookRepository.update(id, updateBookDto);
     if (!updatedBook) {
       throw new NotFoundException(`Book with ID ${id} not found`);
     }
@@ -38,7 +37,7 @@ export class BookService {
   }
 
   async remove(id: string) {
-    const deletedBook = await this.bookModel.findByIdAndDelete(id).exec();
+    const deletedBook = await this.bookRepository.delete(id);
     if (!deletedBook) {
       throw new NotFoundException(`Book with ID ${id} not found`);
     }
@@ -46,23 +45,18 @@ export class BookService {
   }
 
   async uploadImage(id: string, file: Express.Multer.File) {
-    const book = await this.bookModel.findById(id);
+    const book = await this.bookRepository.findOne(id);
     if (!book) {
       throw new NotFoundException(`Book with ID ${id} not found`);
     }
 
-    // Supprimer l'ancienne image si elle existe
     if (book.imageKey) {
       await this.s3Service.deleteFile(book.imageKey);
     }
 
-    // Upload la nouvelle image
     const { imageUrl, imageKey } = await this.s3Service.uploadFile(file);
 
-    // Mettre à jour le livre avec les nouvelles informations d'image
-    book.imageUrl = imageUrl;
-    book.imageKey = imageKey;
-    await book.save();
+    await this.bookRepository.update(id, { imageUrl, imageKey });
 
     return { imageUrl };
   }

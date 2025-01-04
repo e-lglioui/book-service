@@ -1,57 +1,50 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { Borrowing } from '../schemas/borrowing.schemas';
-import { Book } from '../../book/schemas/book.schema';
+import { BookService } from '../../book/providers/book.service';
+import { BorrowingRepository } from '../repositories/borrowing.repository';
 
 @Injectable()
 export class BorrowingService {
   constructor(
-    @InjectModel(Borrowing.name) private readonly borrowingModel: Model<Borrowing>,
-    @InjectModel(Book.name) private readonly bookModel: Model<Book>,
+    private readonly borrowingRepository: BorrowingRepository,
+    private readonly bookService: BookService,
   ) {}
 
   async borrowBook(userId: string, bookId: string): Promise<Borrowing> {
-    const book = await this.bookModel.findById(bookId);
-    if (!book || book.copiesAvailable < 1) {
+    const book = await this.bookService.findOne(bookId);
+    if (!book || book.copiesAvailable< 1) {
       throw new BadRequestException('Book not available');
     }
 
-    const borrowing = new this.borrowingModel({
+    const borrowing = await this.borrowingRepository.create({
       userId,
       bookId,
-      borrowDate: new Date(),
+      borrowDate: new Date().toISOString(),
     });
 
-    await borrowing.save();
-    book.copiesAvailable -= 1;
-    await book.save();
+    await this.bookService.update(bookId, {
+      copiesAvailable: book.copiesAvailable - 1,
+    });
 
     return borrowing;
   }
 
   async returnBook(userId: string, bookId: string): Promise<Borrowing> {
-    const borrowing = await this.borrowingModel.findOne({
-      userId,
-      bookId,
-      returnDate: { $exists: false },
-    });
-
+    const borrowing = await this.borrowingRepository.findActiveByUserAndBook(userId, bookId);
     if (!borrowing) {
       throw new NotFoundException('Borrowing not found or already returned');
     }
 
-    borrowing.returnDate = new Date();
-    await borrowing.save();
+    const updatedBorrowing = await this.borrowingRepository.updateReturnDate(
+      borrowing.id,
+      new Date().toISOString(),
+    );
 
-    const book = await this.bookModel.findById(bookId);
-    if (!book) {
-      throw new NotFoundException('Book not found');
-    }
+    const book = await this.bookService.findOne(bookId);
+    await this.bookService.update(bookId, {
+      copiesAvailable: book.copiesAvailable + 1,
+    });
 
-    book.copiesAvailable += 1;
-    await book.save();
-
-    return borrowing;
+    return updatedBorrowing;
   }
 }

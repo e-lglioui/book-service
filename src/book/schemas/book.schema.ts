@@ -1,28 +1,12 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+export interface Book {
+  book_id: string;
 
-@Schema()
-export class Book extends Document {
-  @Prop({ required: true })
   title: string;
-
-  @Prop({ required: true })
   author: string;
- 
-  @Prop()
-  publishedYear: number;
-
-  @Prop()
+  publishedDate: number;
   genre: string;
-
-  @Prop({ required: true, default: 1 })
-  copiesAvailable: number;
-
-  @Prop()
-  imageUrl: string;
-
-  @Prop()
-  imageKey: string;
+  imageUrl?: string;
+  imageKey?: string;
+  copiesAvailable?:number;
+  // Ajoutez d'autres champs selon vos besoins
 }
-
-export const BookSchema = SchemaFactory.createForClass(Book);
